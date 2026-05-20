@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+LIVE_DIR="${LIVE_WALLPAPER_DIR:-${HOME}/LiveWallpaper}"
+PLUGIN="luisbocanegra.smart.video.wallpaper.reborn"
+QDBUS_BIN="${QDBUS_BIN:-qdbus6}"
+
+mkdir -p "$LIVE_DIR"
+
+video="$(
+  find "$LIVE_DIR" -maxdepth 1 \( -type f -o -type l \) \
+    \( -iname '*.mp4' -o -iname '*.mov' -o -iname '*.webm' -o -iname '*.mkv' -o -iname '*.avi' -o -iname '*.m4v' -o -iname '*.gif' \) \
+    -printf '%T@ %p\n' |
+    sort -nr |
+    head -n 1 |
+    cut -d' ' -f2-
+)"
+
+if [[ -z "${video}" ]]; then
+  echo "No video found in ${LIVE_DIR}; leaving current KDE wallpaper unchanged."
+  exit 0
+fi
+
+video_uri="$(python -c 'import pathlib, sys; print(pathlib.Path(sys.argv[1]).resolve().as_uri())' "$video")"
+video_json="$(
+  python -c 'import json, sys; print(json.dumps([{
+    "filename": sys.argv[1],
+    "enabled": True,
+    "duration": 0,
+    "customDuration": 0,
+    "playbackRate": 1,
+    "alternativePlaybackRate": 0.5,
+    "loop": True
+  }], separators=(",", ":")))' "$video_uri"
+)"
+
+for _ in {1..30}; do
+  if "$QDBUS_BIN" org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript 'print("ready")' >/dev/null 2>&1; then
+    break
+  fi
+  sleep 1
+done
+
+script="$(
+  python -c 'import json, sys
+plugin = sys.argv[1]
+video_json = sys.argv[2]
+print(f"""
+var plugin = {json.dumps(plugin)};
+var videoUrls = {json.dumps(video_json)};
+var ds = desktops();
+for (var i = 0; i < ds.length; i++) {{
+  var d = ds[i];
+  d.wallpaperPlugin = plugin;
+  d.currentConfigGroup = ["Wallpaper", plugin, "General"];
+  d.writeConfig("VideoUrls", videoUrls);
+  d.writeConfig("BackgroundColor", "#000000");
+  d.writeConfig("FillMode", 2);
+  d.writeConfig("PauseMode", 3);
+  d.writeConfig("MuteMode", 5);
+  d.writeConfig("Volume", 0);
+  d.writeConfig("RandomMode", false);
+  d.writeConfig("ResumeLastVideo", true);
+  d.writeConfig("FillBlur", true);
+  d.writeConfig("FillBlurRadius", 64);
+}}
+""")' "$PLUGIN" "$video_json"
+)"
+
+"$QDBUS_BIN" org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript "$script"
+echo "Applied live wallpaper: ${video}"
