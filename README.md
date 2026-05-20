@@ -43,7 +43,7 @@ The installer installs these packages when needed:
 ## Install
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/kde-live-wallpaper-autoset.git
+git clone https://github.com/AdriaBC06/kde-live-wallpaper-autoset.git
 cd kde-live-wallpaper-autoset
 ./install.sh
 ```
