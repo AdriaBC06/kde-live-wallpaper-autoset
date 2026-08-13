@@ -105,4 +105,4 @@ For lower resource usage, prefer short H.264 `.mp4` files at 1080p or lower.
 
 ## License
 
-GPL-3.0-only. See [LICENSE](LICENSE).
+GNU General Public License v3.0 or later. See [LICENSE](LICENSE).
